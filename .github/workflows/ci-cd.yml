@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [ test-github-actions ]
   pull_request:
-    branches: [ master ]
+    branches: [ test-github-actions ]
 
 jobs:
   build-test:
