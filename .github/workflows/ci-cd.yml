@@ -67,7 +67,7 @@ jobs:
 
       - name: Set KUBECONFIG env var
         run: echo "KUBECONFIG=${{ github.workspace }}/kubeconfig" >> $GITHUB_ENV
-        
+
       - name: Deploy with Helm
         env:
           KUBECONFIG: ${{ github.workspace }}/kubeconfig
