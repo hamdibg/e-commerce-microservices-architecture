@@ -2,77 +2,36 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ test-github-actions ]
+    branches: [main]
   pull_request:
-    branches: [ test-github-actions ]
+    branches: [main]
 
 jobs:
-  build-test:
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        service: [users, order, products, payment, api-gateway, config-server, eureka-server]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Build all modules
-        run: mvn clean install
-
-      - name: Grant execute permission to mvnw (Windows)
-        if: runner.os == 'Windows'
-        run: git update-index --chmod=+x mvnw
-      
-      - name: Build and Test ${{ matrix.service }}
-        run: |
-          cd ${{ matrix.service }}
-          ../mvnw clean verify
-        env:
-          SPRING_CLOUD_CONFIG_ENABLED: false
-
-      - name: Build Docker image
-        run: |
-          cd ${{ matrix.service }}
-          docker build -f ../docker/${{ matrix.service }}.Dockerfile -t ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }} .
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
-
-  deploy:
-    needs: build-test
+  build-test-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+      # Construire l'image (adapte pour chaque microservice)
+      - name: Build users image
+        run: docker build -t users:latest ./services/users
 
-      - name: Set up Helm
+      # Installer Kind (Kubernetes in Docker)
+      - name: Set up KinD
+        uses: engineerd/setup-kind@v0.5.0
+
+      # Charger l'image dans Kind
+      - name: Load Docker image into Kind
+        run: kind load docker-image users:latest
+
+      # Installer Helm
+      - name: Install Helm
         uses: azure/setup-helm@v4
 
-      - name: Write kubeconfig to file
-        run: echo "${{ secrets.KUBECONFIG }}" > ${{ github.workspace }}/kubeconfig
+      # Déployer avec Helm
+      - name: Deploy Users service
+        run: helm upgrade --install users ./charts/users
 
-      - name: Set KUBECONFIG env var
-        run: echo "KUBECONFIG=${{ github.workspace }}/kubeconfig" >> $GITHUB_ENV
-
-      - name: Deploy with Helm
-        env:
-          KUBECONFIG: ${{ github.workspace }}/kubeconfig
-        run: |
-          helm upgrade --install shopify ./helm \
-            --set global.imageTag=${{ github.sha }} \
-            --set global.imageRepository="ghcr.io/${{ github.repository_owner }}"
+      # Vérifier le déploiement
+      - name: Check deployments
+        run: kubectl get pods -A
