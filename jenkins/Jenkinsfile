@@ -1,7 +1,7 @@
 pipeline {
   agent any
   environment {
-    REGISTRY = "ghcr.io/your-org"
+    REGISTRY = "ghcr.io/your-org" // Change "your-org" to your GitHub org or username
     IMAGE_TAG = "${env.BUILD_NUMBER}"
   }
   stages {
@@ -16,6 +16,9 @@ pipeline {
           def services = ['api-gateway', 'users', 'products', 'order', 'payment', 'config-server', 'eureka-server']
           for (svc in services) {
             sh "docker build -f docker/${svc}.Dockerfile -t $REGISTRY/${svc}:$IMAGE_TAG ${svc}"
+            withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+              sh "echo $DOCKER_PASS | docker login ghcr.io -u $DOCKER_USER --password-stdin"
+            }
             sh "docker push $REGISTRY/${svc}:$IMAGE_TAG"
           }
         }
@@ -23,7 +26,9 @@ pipeline {
     }
     stage('Deploy to Kubernetes') {
       steps {
-        sh 'helm upgrade --install shopify ./helm --set global.imageTag=$IMAGE_TAG --set global.imageRepository=$REGISTRY'
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          sh 'helm upgrade --install shopify ./helm --set global.imageTag=$IMAGE_TAG --set global.imageRepository=$REGISTRY'
+        }
       }
     }
   }
