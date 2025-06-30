@@ -1,12 +1,13 @@
 pipeline {
   agent any
   environment {
-    REGISTRY = "ghcr.io/your-org" // Change "your-org" to your GitHub org or username
+    REGISTRY = "ghcr.io/hamdibg"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
   }
   stages {
     stage('Build & Test') {
       steps {
+        sh 'chmod +x ./mvnw'
         sh './mvnw clean verify'
       }
     }
