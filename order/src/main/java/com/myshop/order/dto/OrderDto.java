@@ -27,10 +27,6 @@ public class OrderDto  implements Serializable {
 
     private OrderStatus orderStatus;
 
-    private int totalQuantity;
-
-    private String Comment ;
-
     @JsonProperty("user")
  //   @JsonInclude(JsonInclude.Include.NON_NULL)
     private UserDto userDto;
